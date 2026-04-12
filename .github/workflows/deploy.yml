@@ -27,12 +27,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare site
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: web
+
+      - name: Copy compliance data
         run: |
-          mkdir -p web/data
+          mkdir -p web/public/data
           if [ -f data/azure-compliance.json ]; then
-            cp data/azure-compliance.json web/data/
+            cp data/azure-compliance.json web/public/data/
           fi
+
+      - name: Build
+        run: npm run build
+        working-directory: web
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -40,7 +55,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: web
+          path: web/out
 
       - name: Deploy to GitHub Pages
         id: deployment

@@ -3,7 +3,7 @@
     <img src="https://github.com/bitesinbyte/azure-compliance/raw/main/.github/images/logo.svg" width="256px" />
   </a>
 </p>
-<h1 align="center">Azure Compliance</h1>
+<h1 align="center">Azure Compliance | Bites In Byte</h1>
 
 Auto-synced compliance coverage matrix for Azure services, sourced from Microsoft's [Service Trust Portal](https://servicetrust.microsoft.com). Search, filter, and explore compliance certifications across 17 frameworks for Azure and Azure Government.
 

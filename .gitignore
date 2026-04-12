@@ -13,5 +13,10 @@ Thumbs.db
 # Build output
 /dist/
 
+# Next.js
+web/.next/
+web/out/
+web/node_modules/
+
 # Downloaded PDFs
 *.pdf
