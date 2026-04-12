@@ -45,6 +45,8 @@ type ComplianceInput struct {
 type AzureComplianceReport struct {
 	SchemaVersion     string         `json:"schemaVersion"`
 	GeneratedAt       string         `json:"generatedAt"`
+	LastCheck         string         `json:"lastCheck"`
+	LastSync          string         `json:"lastSync"`
 	SourceDescription string         `json:"sourceDescription"`
 	Frameworks        []string       `json:"frameworks"`
 	Clouds            []string       `json:"clouds"`
@@ -53,7 +55,7 @@ type AzureComplianceReport struct {
 }
 
 // Build creates the final compliance report from parsed input.
-func Build(input *ComplianceInput) *AzureComplianceReport {
+func Build(input *ComplianceInput, lastCheck, lastSync string) *AzureComplianceReport {
 	serviceMap := make(map[string]ServiceEntry)
 	orderMap := make(map[string]int)
 	idx := 0
@@ -81,6 +83,8 @@ func Build(input *ComplianceInput) *AzureComplianceReport {
 	return &AzureComplianceReport{
 		SchemaVersion:     "2.0",
 		GeneratedAt:       input.VerifiedDate,
+		LastCheck:         lastCheck,
+		LastSync:          lastSync,
 		SourceDescription: input.SourceDocument,
 		Frameworks: []string{
 			"CSA STAR Certification",

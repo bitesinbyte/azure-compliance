@@ -42,9 +42,16 @@ func main() {
 	log.Printf("[STP] Downloaded %d KB, whenLastModified: %s", len(result.PDFBytes)/1024, result.WhenLastModified)
 
 	// Step 2: Check if document has changed
+	checkTime := time.Now().UTC().Format(time.RFC3339)
 	runState := state.Load()
 	if runState.LastComplianceVersion != "" && runState.LastComplianceVersion == result.WhenLastModified {
 		log.Printf("[Compliance] Document unchanged (whenLastModified: %s). Skipping.", result.WhenLastModified)
+		// Update lastCheck even when skipping (we did check)
+		state.Save(state.RunState{
+			LastCheck:             checkTime,
+			LastSync:              runState.LastSync,
+			LastComplianceVersion: runState.LastComplianceVersion,
+		})
 		return
 	}
 
@@ -61,7 +68,7 @@ func main() {
 		inputFile.Entries[i].ServiceName = normalizer.Normalize(inputFile.Entries[i].ServiceName)
 	}
 
-	complianceReport := report.Build(inputFile)
+	complianceReport := report.Build(inputFile, checkTime, checkTime)
 	log.Printf("[Report] Built report with %d normalized services.", len(complianceReport.Services))
 
 	// Step 5: Serialize to JSON
@@ -94,7 +101,8 @@ func main() {
 
 	// Step 8: Save run state
 	state.Save(state.RunState{
-		LastRun:                 time.Now().UTC().Format(time.RFC3339),
+		LastCheck:             checkTime,
+		LastSync:              checkTime,
 		LastComplianceVersion: result.WhenLastModified,
 	})
 	log.Println("[Compliance] Sync completed successfully.")

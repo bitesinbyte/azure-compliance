@@ -1,12 +1,13 @@
-# Azure Services Compliance Matrix
+<p align="center">
+  <a href="https://github.com/bitesinbyte/azure-compliance">
+    <img src="https://github.com/bitesinbyte/azure-compliance/raw/main/.github/images/logo.svg" width="256px" />
+  </a>
+</p>
+<h1 align="center">Azure Compliance</h1>
 
-Auto-synced compliance coverage matrix for Azure services, sourced from Microsoft's [Service Trust Portal](https://servicetrust.microsoft.com).
+Auto-synced compliance coverage matrix for Azure services, sourced from Microsoft's [Service Trust Portal](https://servicetrust.microsoft.com). Search, filter, and explore compliance certifications across 17 frameworks for Azure and Azure Government.
 
 **Live site:** [azure-compliance.bitesinbyte.com](https://azure-compliance.bitesinbyte.com)
-
-## What is this?
-
-This project tracks which Azure services hold which compliance certifications (ISO 27001, SOC, HIPAA, PCI DSS, etc.) across both Azure and Azure Government clouds. Data is extracted from Microsoft's official compliance offerings PDF and published as structured JSON + an interactive web table.
 
 ## How it works
 
@@ -16,9 +17,11 @@ This project tracks which Azure services hold which compliance certifications (I
 4. The JSON is committed to `data/azure-compliance.json` and the GitHub Gist is updated for backward compatibility
 5. GitHub Pages serves an interactive, searchable compliance table from `web/`
 
-## Data
+Data is checked on the **1st of every month** via GitHub Actions. If the source document has changed, the data is re-synced. You can also trigger a manual sync.
 
-The compliance data covers **17 frameworks** across **2 clouds**:
+## Frameworks
+
+The compliance data covers **17 frameworks** across **2 clouds** (Azure, Azure Government):
 
 | Framework | Key |
 |---|---|
@@ -40,46 +43,14 @@ The compliance data covers **17 frameworks** across **2 clouds**:
 | Singapore MTCS Level 3 | `singaporeMtcsLevel3` |
 | Spain ENS High | `spainEnsHigh` |
 
-## Sync schedule
+## Disclaimer
 
-Data is synced on the **1st of every month** via GitHub Actions. You can also trigger a manual sync.
+This data reflects Microsoft's platform-level compliance attestation scope as published in the official audit reports obtained from the Service Trust Portal. It does **not** constitute a compliance certification for any customer workload. Customers must independently assess their own control implementations. Always refer to the [Microsoft Service Trust Portal](https://servicetrust.microsoft.com) for the most current and authoritative compliance information.
 
-## Required secrets
+## Need Help?
 
-| Secret | Description |
-|---|---|
-| `GIT_PERSONAL_TOKEN` | GitHub PAT for Gist updates |
-| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint URL |
-| `AZURE_OPENAI_API_KEY` | Azure OpenAI API key |
-| `AZURE_OPENAI_DEPLOYMENT` | Azure OpenAI deployment name |
-
-## Project structure
-
-```
-azure-compliance/
-├── cmd/sync/main.go          # CLI entry point
-├── internal/
-│   ├── stp/                  # Service Trust Portal PDF downloader
-│   ├── parser/               # Azure OpenAI PDF parser
-│   ├── normalizer/           # Service name canonicalization
-│   ├── report/               # Report builder and data types
-│   ├── gist/                 # GitHub Gist updater
-│   └── state/                # Run state manager
-├── data/
-│   └── azure-compliance.json # Generated compliance data
-├── web/
-│   ├── index.html            # Interactive compliance table
-│   └── CNAME                 # Custom domain
-├── config.json               # Sync state tracking
-└── .github/workflows/
-    ├── sync.yml              # Monthly data sync
-    └── deploy.yml            # GitHub Pages deployment
-```
+If you need any help or if you find any issue, please raise it [here](https://github.com/bitesinbyte/azure-compliance/discussions).
 
 ## License
 
-MIT
-
----
-
-Built by [bitesinbyte](https://bitesinbyte.com)
+Licensed under the [MIT license](https://github.com/bitesinbyte/azure-compliance/blob/main/LICENSE).

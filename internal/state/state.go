@@ -9,9 +9,10 @@ import (
 
 const configFileName = "config.json"
 
-// RunState tracks the last sync run.
+// RunState tracks the last check and sync runs.
 type RunState struct {
-	LastRun               string `json:"lastRun"`
+	LastCheck             string `json:"lastCheck"`
+	LastSync              string `json:"lastSync"`
 	LastComplianceVersion string `json:"last-compliance-check-version"`
 }
 

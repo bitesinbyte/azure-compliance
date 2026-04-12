@@ -401,7 +401,9 @@
         <h1>Azure Services Compliance Matrix</h1>
       </div>
       <div class="header-right">
-        <span id="lastSync" style="font-size: 0.75rem; color: var(--text-secondary);"></span>
+        <span id="lastCheck" class="meta-label" style="font-size: 0.75rem; color: var(--text-secondary);"></span>
+        <span style="color: var(--border);">|</span>
+        <span id="lastSync" class="meta-label" style="font-size: 0.75rem; color: var(--text-secondary);"></span>
         <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
           <span id="themeIcon">&#9790;</span>
         </button>
@@ -440,7 +442,9 @@
   </div>
 
   <div class="disclaimer">
-    <div class="disclaimer-content" id="disclaimer"></div>
+    <div class="disclaimer-content" id="disclaimer">
+      <strong>Disclaimer:</strong> This data reflects Microsoft's platform-level compliance attestation scope as published in the official audit reports obtained from the Service Trust Portal. It does NOT constitute a compliance certification for any customer workload. Customers must independently assess their own control implementations.
+    </div>
   </div>
 
   <footer class="footer">
@@ -524,9 +528,29 @@
 
     function renderMeta() {
       if (!complianceData) return;
-      document.getElementById('lastSync').textContent = `Last synced: ${complianceData.generatedAt}`;
+
+      const lastCheck = complianceData.lastCheck || complianceData.generatedAt || 'N/A';
+      const lastSync = complianceData.lastSync || complianceData.generatedAt || 'N/A';
+
+      document.getElementById('lastCheck').textContent = `Last check: ${formatDateTime(lastCheck)}`;
+      document.getElementById('lastSync').textContent = `Last sync: ${formatDateTime(lastSync)}`;
+
+      const defaultDisclaimer = 'This data reflects Microsoft\'s platform-level compliance attestation scope as published in the official audit reports obtained from the Service Trust Portal. It does NOT constitute a compliance certification for any customer workload. Customers must independently assess their own control implementations.';
+
       document.getElementById('disclaimer').innerHTML =
-        `<strong>Disclaimer:</strong> ${complianceData.disclaimer}`;
+        `<strong>Disclaimer:</strong> ${complianceData.disclaimer || defaultDisclaimer}`;
+    }
+
+    function formatDateTime(dateStr) {
+      if (!dateStr || dateStr === 'N/A') return 'N/A';
+      try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+          + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+      } catch {
+        return dateStr;
+      }
     }
 
     function getFilteredServices() {
