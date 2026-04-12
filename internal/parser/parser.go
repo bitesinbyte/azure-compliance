@@ -8,13 +8,17 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bitesinbyte/azure-compliance/internal/report"
 	"github.com/dslipak/pdf"
 )
 
-const batchSize = 40
+const (
+	batchSize      = 80
+	maxConcurrency = 5
+)
 
 // ParsePDF extracts compliance data from a PDF using Azure OpenAI.
 func ParsePDF(pdfBytes []byte, endpoint, apiKey, deployment string) (*report.ComplianceInput, error) {
@@ -34,18 +38,46 @@ func ParsePDF(pdfBytes []byte, endpoint, apiKey, deployment string) (*report.Com
 	}
 	log.Printf("[AI] Found %d services. Processing in batches of %d...", len(serviceNames), batchSize)
 
-	// Step 3: Process in batches
-	var allEntries []report.ServiceEntry
+	// Step 3: Process in batches concurrently
 	batches := chunk(serviceNames, batchSize)
+	log.Printf("[AI] Processing %d batches concurrently (max %d at a time)...", len(batches), maxConcurrency)
+
+	type batchResult struct {
+		index   int
+		entries []report.ServiceEntry
+		err     error
+	}
+
+	results := make([]batchResult, len(batches))
+	sem := make(chan struct{}, maxConcurrency)
+	var wg sync.WaitGroup
 
 	for i, batch := range batches {
-		log.Printf("[AI] Processing batch %d/%d (%d services)...", i+1, len(batches), len(batch))
-		entries, err := getComplianceEntries(endpoint, apiKey, deployment, pdfText, batch)
-		if err != nil {
-			return nil, fmt.Errorf("batch %d failed: %w", i+1, err)
+		wg.Add(1)
+		go func(idx int, b []string) {
+			defer wg.Done()
+			sem <- struct{}{}        // acquire semaphore
+			defer func() { <-sem }() // release semaphore
+
+			log.Printf("[AI] Processing batch %d/%d (%d services)...", idx+1, len(batches), len(b))
+			entries, err := getComplianceEntries(endpoint, apiKey, deployment, pdfText, b)
+			results[idx] = batchResult{index: idx, entries: entries, err: err}
+			if err != nil {
+				log.Printf("[AI] Batch %d failed: %v", idx+1, err)
+			} else {
+				log.Printf("[AI] Batch %d returned %d entries.", idx+1, len(entries))
+			}
+		}(i, batch)
+	}
+
+	wg.Wait()
+
+	var allEntries []report.ServiceEntry
+	for _, r := range results {
+		if r.err != nil {
+			return nil, fmt.Errorf("batch %d failed: %w", r.index+1, r.err)
 		}
-		allEntries = append(allEntries, entries...)
-		log.Printf("[AI] Batch %d returned %d entries. Total so far: %d", i+1, len(entries), len(allEntries))
+		allEntries = append(allEntries, r.entries...)
 	}
 
 	if len(allEntries) == 0 {
