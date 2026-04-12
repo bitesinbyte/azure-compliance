@@ -1,0 +1,17 @@
+# Binaries
+/sync
+/cmd/sync/sync
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build output
+/dist/
+
+# Downloaded PDFs
+*.pdf

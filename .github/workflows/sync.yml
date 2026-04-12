@@ -1,0 +1,41 @@
+name: Sync Compliance Data
+
+on:
+  schedule:
+    - cron: "0 0 1 * *" # 1st of every month at midnight UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Build
+        run: go build -o sync ./cmd/sync
+
+      - name: Run sync
+        env:
+          GIT_PERSONAL_TOKEN: ${{ secrets.GIT_PERSONAL_TOKEN }}
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_DEPLOYMENT }}
+          OUTPUT_DIR: data
+        run: ./sync
+
+      - name: Commit updated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/azure-compliance.json config.json
+          git diff --cached --quiet || git commit -m "chore: sync compliance data $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push
