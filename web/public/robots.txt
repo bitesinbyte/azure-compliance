@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://azure-compliance.bitesinbyte.com/sitemap.xml
