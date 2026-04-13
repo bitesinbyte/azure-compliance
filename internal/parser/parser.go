@@ -18,6 +18,7 @@ import (
 const (
 	batchSize      = 80
 	maxConcurrency = 5
+	maxRetries     = 3
 )
 
 // ParsePDF extracts compliance data from a PDF using Azure OpenAI.
@@ -257,39 +258,63 @@ func callAzureOpenAI(endpoint, apiKey, deployment string, messages []chatMessage
 		return "", fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("api-key", apiKey)
+	log.Printf("[AI] Request payload size: %d bytes", len(bodyBytes))
 
 	client := &http.Client{Timeout: 10 * time.Minute}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response: %w", err)
+	var lastErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if attempt > 1 {
+			backoff := time.Duration(attempt*attempt) * 10 * time.Second
+			log.Printf("[AI] Retry %d/%d after %v...", attempt, maxRetries, backoff)
+			time.Sleep(backoff)
+		}
+
+		req, err := http.NewRequest("POST", url, bytes.NewReader(bodyBytes))
+		if err != nil {
+			return "", fmt.Errorf("failed to create request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("api-key", apiKey)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("request failed (attempt %d): %w", attempt, err)
+			log.Printf("[AI] HTTP request failed (attempt %d): %v", attempt, err)
+			continue
+		}
+
+		respBody, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			lastErr = fmt.Errorf("failed to read response (attempt %d): %w", attempt, err)
+			log.Printf("[AI] Failed to read response body (attempt %d): %v", attempt, err)
+			continue
+		}
+
+		if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+			lastErr = fmt.Errorf("Azure OpenAI returned status %d (attempt %d): %s", resp.StatusCode, attempt, string(respBody))
+			log.Printf("[AI] Retryable error %d (attempt %d): %s", resp.StatusCode, attempt, string(respBody))
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return "", fmt.Errorf("Azure OpenAI returned status %d: %s", resp.StatusCode, string(respBody))
+		}
+
+		var openAIResp azureOpenAIResponse
+		if err := json.Unmarshal(respBody, &openAIResp); err != nil {
+			return "", fmt.Errorf("failed to parse response: %w", err)
+		}
+
+		if len(openAIResp.Choices) == 0 {
+			return "", fmt.Errorf("Azure OpenAI returned no choices")
+		}
+
+		return openAIResp.Choices[0].Message.Content, nil
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Azure OpenAI returned status %d: %s", resp.StatusCode, string(respBody))
-	}
-
-	var openAIResp azureOpenAIResponse
-	if err := json.Unmarshal(respBody, &openAIResp); err != nil {
-		return "", fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	if len(openAIResp.Choices) == 0 {
-		return "", fmt.Errorf("Azure OpenAI returned no choices")
-	}
-
-	return openAIResp.Choices[0].Message.Content, nil
+	return "", fmt.Errorf("all %d attempts failed: %w", maxRetries, lastErr)
 }
 
 func buildSystemPrompt() string {
