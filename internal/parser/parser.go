@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/bitesinbyte/azure-compliance/internal/report"
-	"github.com/dslipak/pdf"
+	"github.com/ledongthuc/pdf"
 )
 
 const (
