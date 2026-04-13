@@ -125,6 +125,85 @@
     @apply bg-background text-foreground;
   }
   html {
-    @apply font-sans;
+    @apply scroll-smooth font-sans;
+  }
+}
+
+/* Hero gradient background */
+.hero-gradient {
+  background: radial-gradient(
+      ellipse 80% 50% at 50% -20%,
+      oklch(0.55 0.15 250 / 8%),
+      transparent
+    ),
+    radial-gradient(
+      ellipse 60% 40% at 80% 80%,
+      oklch(0.55 0.1 300 / 5%),
+      transparent
+    );
+}
+
+.dark .hero-gradient {
+  background: radial-gradient(
+      ellipse 80% 50% at 50% -20%,
+      oklch(0.35 0.15 250 / 15%),
+      transparent
+    ),
+    radial-gradient(
+      ellipse 60% 40% at 80% 80%,
+      oklch(0.35 0.1 300 / 10%),
+      transparent
+    );
+}
+
+/* Hero badge glow */
+.hero-badge-glow {
+  box-shadow: 0 0 20px oklch(0.55 0.1 250 / 10%);
+}
+.dark .hero-badge-glow {
+  box-shadow: 0 0 20px oklch(0.55 0.15 250 / 15%);
+}
+
+/* Hero staggered entrance animations */
+.hero-entrance {
+  animation: hero-fade-up 0.6s ease-out both;
+}
+.hero-entrance-2 {
+  animation-delay: 0.1s;
+}
+.hero-entrance-3 {
+  animation-delay: 0.2s;
+}
+.hero-entrance-4 {
+  animation-delay: 0.35s;
+}
+.hero-entrance-5 {
+  animation-delay: 0.5s;
+}
+
+@keyframes hero-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Hero title gradient animation */
+.hero-title-gradient {
+  background-size: 200% 100%;
+  animation: gradient-shift 6s ease-in-out infinite;
+}
+
+@keyframes gradient-shift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
   }
 }

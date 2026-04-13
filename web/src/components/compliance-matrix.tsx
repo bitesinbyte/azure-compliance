@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, Check, Minus } from "lucide-react";
+import { Search, Check, Minus, Link2, Share2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -65,18 +66,75 @@ function useDebounce<T>(value: T, delay: number): T {
   return debounced;
 }
 
+/** Read initial filter values from URL query parameters (works on GitHub Pages). */
+function getInitialFilters() {
+  if (typeof window === "undefined") {
+    return { search: "", cloud: "all" as CloudFilter, framework: "all", compliance: "all" as ComplianceFilter };
+  }
+  const params = new URLSearchParams(window.location.search);
+  return {
+    search: params.get("q") || params.get("search") || "",
+    cloud: (params.get("cloud") as CloudFilter) || "all",
+    framework: params.get("framework") || "all",
+    compliance: (params.get("compliance") as ComplianceFilter) || "all",
+  };
+}
+
+/** Update URL query parameters without reloading the page. */
+function updateQueryParams(filters: { search: string; cloud: string; framework: string; compliance: string }) {
+  if (typeof window === "undefined") return;
+  const params = new URLSearchParams();
+  if (filters.search) params.set("q", filters.search);
+  if (filters.cloud !== "all") params.set("cloud", filters.cloud);
+  if (filters.framework !== "all") params.set("framework", filters.framework);
+  if (filters.compliance !== "all") params.set("compliance", filters.compliance);
+
+  const qs = params.toString();
+  const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+  window.history.replaceState(null, "", newUrl);
+}
+
 export function ComplianceMatrix() {
   const [data, setData] = useState<AzureComplianceReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  const [search, setSearch] = useState("");
-  const [cloudFilter, setCloudFilter] = useState<CloudFilter>("all");
-  const [frameworkFilter, setFrameworkFilter] = useState<string>("all");
+  const initial = useMemo(() => getInitialFilters(), []);
+  const [search, setSearch] = useState(initial.search);
+  const [cloudFilter, setCloudFilter] = useState<CloudFilter>(initial.cloud);
+  const [frameworkFilter, setFrameworkFilter] = useState<string>(initial.framework);
   const [complianceFilter, setComplianceFilter] =
-    useState<ComplianceFilter>("all");
+    useState<ComplianceFilter>(initial.compliance);
 
   const debouncedSearch = useDebounce(search, 200);
+
+  // Sync filters to URL query params
+  useEffect(() => {
+    updateQueryParams({
+      search: debouncedSearch,
+      cloud: cloudFilter,
+      framework: frameworkFilter,
+      compliance: complianceFilter,
+    });
+  }, [debouncedSearch, cloudFilter, frameworkFilter, complianceFilter]);
+
+  // Auto-scroll to matrix section if query params are present
+  useEffect(() => {
+    if (initial.search || initial.cloud !== "all" || initial.framework !== "all" || initial.compliance !== "all") {
+      setTimeout(() => {
+        document.getElementById("compliance-matrix")?.scrollIntoView({ behavior: "smooth" });
+      }, 300);
+    }
+  }, [initial]);
+
+  const copyShareLink = useCallback(() => {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, []);
 
   useEffect(() => {
     async function loadData() {
@@ -157,16 +215,29 @@ export function ComplianceMatrix() {
     "This data reflects Microsoft's platform-level compliance attestation scope as published in the official audit reports obtained from the Service Trust Portal. It does NOT constitute a compliance certification for any customer workload. Customers must independently assess their own control implementations.";
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div id="compliance-matrix" className="flex flex-1 flex-col scroll-mt-14">
       {/* Page Title */}
-      <div className="mx-auto w-full max-w-7xl px-4 pt-4">
-        <h1 className="text-2xl font-bold tracking-tight">
-          Azure Services Compliance Matrix
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Interactive compliance coverage matrix for Azure services across 17
-          frameworks.
-        </p>
+      <div className="mx-auto w-full max-w-7xl px-4 pt-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">
+              Compliance Matrix
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Interactive compliance coverage matrix for Azure services across 17
+              frameworks.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 shrink-0"
+            onClick={copyShareLink}
+          >
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
+            {copied ? "Copied!" : "Share"}
+          </Button>
+        </div>
         {data && (
           <div className="mt-2 flex gap-4 text-xs text-muted-foreground">
             <span>Last check: {formatDateTime(lastCheck)}</span>
