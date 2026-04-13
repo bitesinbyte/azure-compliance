@@ -64,10 +64,10 @@ export function ApiUsageDialog() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>API &amp; Query Usage</DialogTitle>
+          <DialogTitle>API, MCP &amp; Query Usage</DialogTitle>
           <DialogDescription>
-            Use the JSON data and URL query parameters to integrate compliance
-            data into your workflows.
+            Use the JSON endpoint, MCP integration, or URL query parameters to
+            integrate compliance data into your workflows.
           </DialogDescription>
         </DialogHeader>
 
@@ -202,6 +202,80 @@ print(soc_gov)`}
                   </tr>
                 </tbody>
               </table>
+            </div>
+          </section>
+
+          {/* MCP Integration */}
+          <section>
+            <h3 className="mb-2 text-sm font-semibold">MCP (Model Context Protocol)</h3>
+            <p className="mb-2 text-xs text-muted-foreground">
+              This site exposes an MCP discovery endpoint at{" "}
+              <code className="rounded bg-muted px-1 font-mono text-[11px]">
+                /.well-known/mcp.json
+              </code>
+              . AI tools and agents that support MCP can discover and query the
+              compliance data automatically.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <p className="mb-1 text-xs font-medium">Discovery URL</p>
+                <CodeBlock code={`${SITE_URL}/.well-known/mcp.json`} />
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-medium">Claude Desktop / Cursor</p>
+                <p className="mb-1 text-xs text-muted-foreground">
+                  Add to your MCP config (e.g.{" "}
+                  <code className="rounded bg-muted px-1 font-mono text-[11px]">
+                    claude_desktop_config.json
+                  </code>{" "}
+                  or{" "}
+                  <code className="rounded bg-muted px-1 font-mono text-[11px]">
+                    .cursor/mcp.json
+                  </code>
+                  ):
+                </p>
+                <CodeBlock
+                  language="json"
+                  code={`{
+  "mcpServers": {
+    "azure-compliance": {
+      "url": "${SITE_URL}/.well-known/mcp.json"
+    }
+  }
+}`}
+                />
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-medium">What it provides</p>
+                <ul className="space-y-1 text-xs text-muted-foreground">
+                  <li className="flex items-start gap-1.5">
+                    <span className="mt-1 block h-1 w-1 shrink-0 rounded-full bg-muted-foreground/50" />
+                    Full compliance dataset as a JSON resource (210+ services)
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="mt-1 block h-1 w-1 shrink-0 rounded-full bg-muted-foreground/50" />
+                    17 compliance frameworks across Azure and Azure Government
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <span className="mt-1 block h-1 w-1 shrink-0 rounded-full bg-muted-foreground/50" />
+                    Auto-synced weekly from Microsoft Service Trust Portal
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-medium">Example prompts</p>
+                <div className="space-y-1.5">
+                  <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground italic">
+                    &ldquo;Which Azure services are HIPAA compliant?&rdquo;
+                  </div>
+                  <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground italic">
+                    &ldquo;List services with PCI DSS on Azure Government.&rdquo;
+                  </div>
+                  <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground italic">
+                    &ldquo;Compare ISO 27001 coverage between Azure and Azure Gov for storage services.&rdquo;
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
 
