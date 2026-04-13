@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, Check, Minus, Link2, Share2 } from "lucide-react";
+import { Search, Check, Minus, Share2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,9 +22,10 @@ import {
 } from "@/components/ui/select";
 import {
   type AzureComplianceReport,
-  type CloudFilter,
+  type CloudToggle,
   type ComplianceFilter,
   type FrameworkKey,
+  type ReportFilter,
   type ServiceEntry,
 } from "@/types/compliance";
 import {
@@ -69,28 +70,45 @@ function useDebounce<T>(value: T, delay: number): T {
 /** Read initial filter values from URL query parameters (works on GitHub Pages). */
 function getInitialFilters() {
   if (typeof window === "undefined") {
-    return { search: "", cloud: "all" as CloudFilter, framework: "all", compliance: "all" as ComplianceFilter };
+    return {
+      search: "",
+      cloud: "azure" as CloudToggle,
+      report: "germanyC5" as ReportFilter,
+      compliance: "all" as ComplianceFilter,
+    };
   }
   const params = new URLSearchParams(window.location.search);
+  const cloud = params.get("cloud");
+  const report = params.get("report") || params.get("framework");
   return {
     search: params.get("q") || params.get("search") || "",
-    cloud: (params.get("cloud") as CloudFilter) || "all",
-    framework: params.get("framework") || "all",
+    cloud: (cloud === "gov" ? "gov" : "azure") as CloudToggle,
+    report: (report && (report === "all" || FRAMEWORK_KEYS.includes(report as FrameworkKey))
+      ? report
+      : "germanyC5") as ReportFilter,
     compliance: (params.get("compliance") as ComplianceFilter) || "all",
   };
 }
 
 /** Update URL query parameters without reloading the page. */
-function updateQueryParams(filters: { search: string; cloud: string; framework: string; compliance: string }) {
+function updateQueryParams(filters: {
+  search: string;
+  cloud: string;
+  report: string;
+  compliance: string;
+}) {
   if (typeof window === "undefined") return;
   const params = new URLSearchParams();
   if (filters.search) params.set("q", filters.search);
-  if (filters.cloud !== "all") params.set("cloud", filters.cloud);
-  if (filters.framework !== "all") params.set("framework", filters.framework);
-  if (filters.compliance !== "all") params.set("compliance", filters.compliance);
+  if (filters.cloud !== "azure") params.set("cloud", filters.cloud);
+  if (filters.report !== "germanyC5") params.set("report", filters.report);
+  if (filters.compliance !== "all")
+    params.set("compliance", filters.compliance);
 
   const qs = params.toString();
-  const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+  const newUrl = qs
+    ? `${window.location.pathname}?${qs}`
+    : window.location.pathname;
   window.history.replaceState(null, "", newUrl);
 }
 
@@ -102,10 +120,13 @@ export function ComplianceMatrix() {
 
   const initial = useMemo(() => getInitialFilters(), []);
   const [search, setSearch] = useState(initial.search);
-  const [cloudFilter, setCloudFilter] = useState<CloudFilter>(initial.cloud);
-  const [frameworkFilter, setFrameworkFilter] = useState<string>(initial.framework);
-  const [complianceFilter, setComplianceFilter] =
-    useState<ComplianceFilter>(initial.compliance);
+  const [cloudToggle, setCloudToggle] = useState<CloudToggle>(initial.cloud);
+  const [reportFilter, setReportFilter] = useState<ReportFilter>(
+    initial.report
+  );
+  const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>(
+    initial.compliance
+  );
 
   const debouncedSearch = useDebounce(search, 200);
 
@@ -113,17 +134,24 @@ export function ComplianceMatrix() {
   useEffect(() => {
     updateQueryParams({
       search: debouncedSearch,
-      cloud: cloudFilter,
-      framework: frameworkFilter,
+      cloud: cloudToggle,
+      report: reportFilter,
       compliance: complianceFilter,
     });
-  }, [debouncedSearch, cloudFilter, frameworkFilter, complianceFilter]);
+  }, [debouncedSearch, cloudToggle, reportFilter, complianceFilter]);
 
   // Auto-scroll to matrix section if query params are present
   useEffect(() => {
-    if (initial.search || initial.cloud !== "all" || initial.framework !== "all" || initial.compliance !== "all") {
+    if (
+      initial.search ||
+      initial.cloud !== "azure" ||
+      initial.report !== "germanyC5" ||
+      initial.compliance !== "all"
+    ) {
       setTimeout(() => {
-        document.getElementById("compliance-matrix")?.scrollIntoView({ behavior: "smooth" });
+        document
+          .getElementById("compliance-matrix")
+          ?.scrollIntoView({ behavior: "smooth" });
       }, 300);
     }
   }, [initial]);
@@ -152,6 +180,12 @@ export function ComplianceMatrix() {
     loadData();
   }, []);
 
+  // Determine which framework columns to show
+  const visibleFrameworks = useMemo<FrameworkKey[]>(() => {
+    if (reportFilter === "all") return FRAMEWORK_KEYS;
+    return [reportFilter];
+  }, [reportFilter]);
+
   const filteredServices = useMemo(() => {
     if (!data) return [];
 
@@ -163,50 +197,30 @@ export function ComplianceMatrix() {
       )
         return false;
 
-      // Framework filter
-      if (frameworkFilter !== "all") {
-        const key = frameworkFilter as FrameworkKey;
-        const azureHas = svc.azure[key];
-        const govHas = svc.azureGovernment[key];
-        if (cloudFilter === "azure" && !azureHas) return false;
-        if (cloudFilter === "gov" && !govHas) return false;
-        if (cloudFilter === "all" && !azureHas && !govHas) return false;
-      }
+      // Cloud-specific compliance data
+      const cloudData =
+        cloudToggle === "azure" ? svc.azure : svc.azureGovernment;
 
       // Compliance level filter
       if (complianceFilter !== "all") {
-        const azureCount = FRAMEWORK_KEYS.filter(
-          (k) => svc.azure[k]
-        ).length;
-        const govCount = FRAMEWORK_KEYS.filter(
-          (k) => svc.azureGovernment[k]
-        ).length;
-        const total =
-          cloudFilter === "azure"
-            ? azureCount
-            : cloudFilter === "gov"
-              ? govCount
-              : azureCount + govCount;
-        const max =
-          cloudFilter === "all"
-            ? FRAMEWORK_KEYS.length * 2
-            : FRAMEWORK_KEYS.length;
+        const count = visibleFrameworks.filter((k) => cloudData[k]).length;
+        const max = visibleFrameworks.length;
 
-        if (complianceFilter === "compliant" && total < max) return false;
-        if (
-          complianceFilter === "partial" &&
-          (total === 0 || total === max)
-        )
+        if (complianceFilter === "compliant" && count < max) return false;
+        if (complianceFilter === "partial" && (count === 0 || count === max))
           return false;
-        if (complianceFilter === "none" && total > 0) return false;
+        if (complianceFilter === "none" && count > 0) return false;
       }
 
       return true;
     });
-  }, [data, debouncedSearch, cloudFilter, frameworkFilter, complianceFilter]);
-
-  const showAzure = cloudFilter === "all" || cloudFilter === "azure";
-  const showGov = cloudFilter === "all" || cloudFilter === "gov";
+  }, [
+    data,
+    debouncedSearch,
+    cloudToggle,
+    complianceFilter,
+    visibleFrameworks,
+  ]);
 
   const lastCheck = data?.lastCheck || data?.generatedAt || "N/A";
   const lastSync = data?.lastSync || data?.generatedAt || "N/A";
@@ -224,8 +238,8 @@ export function ComplianceMatrix() {
               Compliance Matrix
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Interactive compliance coverage matrix for Azure services across 17
-              frameworks.
+              Interactive compliance coverage matrix for Azure services across{" "}
+              {FRAMEWORK_KEYS.length} frameworks.
             </p>
           </div>
           <Button
@@ -234,7 +248,11 @@ export function ComplianceMatrix() {
             className="gap-1.5 shrink-0"
             onClick={copyShareLink}
           >
-            {copied ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
+            {copied ? (
+              <Check className="h-3.5 w-3.5" />
+            ) : (
+              <Share2 className="h-3.5 w-3.5" />
+            )}
             {copied ? "Copied!" : "Share"}
           </Button>
         </div>
@@ -248,6 +266,7 @@ export function ComplianceMatrix() {
 
       {/* Toolbar */}
       <div className="mx-auto mt-4 flex w-full max-w-7xl flex-wrap items-center gap-3 px-4">
+        {/* Search */}
         <div className="relative min-w-[250px] flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -258,26 +277,53 @@ export function ComplianceMatrix() {
           />
         </div>
 
-        <Select
-          value={cloudFilter}
-          onValueChange={(v) => { if (v) setCloudFilter(v as CloudFilter); }}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="All Clouds" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Clouds</SelectItem>
-            <SelectItem value="azure">Azure Only</SelectItem>
-            <SelectItem value="gov">Azure Government Only</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Cloud Toggle */}
+        <div className="inline-flex items-center rounded-lg border bg-muted p-0.5">
+          <button
+            onClick={() => setCloudToggle("azure")}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
+              cloudToggle === "azure"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <span className="flex items-center gap-1.5">
+              <span
+                className={`inline-block h-2 w-2 rounded-full ${
+                  cloudToggle === "azure" ? "bg-blue-500" : "bg-blue-500/40"
+                }`}
+              />
+              Azure
+            </span>
+          </button>
+          <button
+            onClick={() => setCloudToggle("gov")}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
+              cloudToggle === "gov"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <span className="flex items-center gap-1.5">
+              <span
+                className={`inline-block h-2 w-2 rounded-full ${
+                  cloudToggle === "gov" ? "bg-purple-500" : "bg-purple-500/40"
+                }`}
+              />
+              Azure Gov
+            </span>
+          </button>
+        </div>
 
+        {/* Compliance Report Selector (default: Germany C5) */}
         <Select
-          value={frameworkFilter}
-          onValueChange={(v) => { if (v !== null) setFrameworkFilter(v); }}
+          value={reportFilter}
+          onValueChange={(v) => {
+            if (v !== null) setReportFilter(v as ReportFilter);
+          }}
         >
           <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="All Frameworks" />
+            <SelectValue placeholder="Germany C5" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Frameworks</SelectItem>
@@ -289,9 +335,12 @@ export function ComplianceMatrix() {
           </SelectContent>
         </Select>
 
+        {/* Compliance Filter */}
         <Select
           value={complianceFilter}
-          onValueChange={(v) => { if (v) setComplianceFilter(v as ComplianceFilter); }}
+          onValueChange={(v) => {
+            if (v) setComplianceFilter(v as ComplianceFilter);
+          }}
         >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="All Services" />
@@ -307,7 +356,7 @@ export function ComplianceMatrix() {
 
       {/* Stats */}
       {data && (
-        <div className="mx-auto mt-3 flex w-full max-w-7xl gap-6 px-4 text-sm text-muted-foreground">
+        <div className="mx-auto mt-3 flex w-full max-w-7xl flex-wrap gap-4 px-4 text-sm text-muted-foreground sm:gap-6">
           <span>
             Showing{" "}
             <span className="font-semibold text-foreground">
@@ -322,13 +371,17 @@ export function ComplianceMatrix() {
           <span>
             Frameworks:{" "}
             <span className="font-semibold text-foreground">
-              {FRAMEWORK_KEYS.length}
+              {visibleFrameworks.length}
             </span>
+            {reportFilter !== "all" && (
+              <span className="text-xs"> of {FRAMEWORK_KEYS.length}</span>
+            )}
           </span>
           <span>
-            Clouds:{" "}
-            <span className="font-semibold text-foreground">2</span> (Azure,
-            Azure Government)
+            Cloud:{" "}
+            <span className="font-semibold text-foreground">
+              {cloudToggle === "azure" ? "Azure" : "Azure Government"}
+            </span>
           </span>
         </div>
       )}
@@ -360,7 +413,7 @@ export function ComplianceMatrix() {
           <div className="rounded-lg border shadow-sm">
             <Table>
               <TableHeader>
-                {/* Cloud header row */}
+                {/* Cloud indicator row */}
                 <TableRow>
                   <TableHead
                     rowSpan={2}
@@ -368,92 +421,57 @@ export function ComplianceMatrix() {
                   >
                     Service
                   </TableHead>
-                  {showAzure && (
-                    <TableHead
-                      colSpan={FRAMEWORK_KEYS.length}
-                      className="border-b text-center text-xs uppercase tracking-wider"
+                  <TableHead
+                    colSpan={visibleFrameworks.length}
+                    className="border-b text-center text-xs uppercase tracking-wider"
+                  >
+                    <Badge
+                      variant="secondary"
+                      className={
+                        cloudToggle === "azure"
+                          ? "bg-blue-500/15 text-blue-400 dark:text-blue-300"
+                          : "bg-purple-500/15 text-purple-400 dark:text-purple-300"
+                      }
                     >
-                      <Badge
-                        variant="secondary"
-                        className="bg-blue-500/15 text-blue-400 dark:text-blue-300"
-                      >
-                        Azure
-                      </Badge>
-                    </TableHead>
-                  )}
-                  {showGov && (
-                    <TableHead
-                      colSpan={FRAMEWORK_KEYS.length}
-                      className={`border-b text-center text-xs uppercase tracking-wider ${
-                        showAzure ? "border-l-[3px] border-l-muted-foreground" : ""
-                      }`}
-                    >
-                      <Badge
-                        variant="secondary"
-                        className="bg-purple-500/15 text-purple-400 dark:text-purple-300"
-                      >
-                        Azure Government
-                      </Badge>
-                    </TableHead>
-                  )}
+                      {cloudToggle === "azure" ? "Azure" : "Azure Government"}
+                    </Badge>
+                  </TableHead>
                 </TableRow>
 
                 {/* Framework header row */}
                 <TableRow>
-                  {showAzure &&
-                    FRAMEWORK_KEYS.map((key) => (
-                      <TableHead
-                        key={`az-${key}`}
-                        className="whitespace-nowrap text-center text-[0.65rem] font-semibold text-muted-foreground"
-                        title={FRAMEWORK_FULL_NAMES[key]}
-                      >
-                        {FRAMEWORK_LABELS[key]}
-                      </TableHead>
-                    ))}
-                  {showGov &&
-                    FRAMEWORK_KEYS.map((key, i) => (
-                      <TableHead
-                        key={`gov-${key}`}
-                        className={`whitespace-nowrap text-center text-[0.65rem] font-semibold text-muted-foreground ${
-                          i === 0 && showAzure
-                            ? "border-l-[3px] border-l-muted-foreground"
-                            : ""
-                        }`}
-                        title={FRAMEWORK_FULL_NAMES[key]}
-                      >
-                        {FRAMEWORK_LABELS[key]}
-                      </TableHead>
-                    ))}
+                  {visibleFrameworks.map((key) => (
+                    <TableHead
+                      key={key}
+                      className="whitespace-nowrap text-center text-[0.65rem] font-semibold text-muted-foreground"
+                      title={FRAMEWORK_FULL_NAMES[key]}
+                    >
+                      {FRAMEWORK_LABELS[key]}
+                    </TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
 
               <TableBody>
-                {filteredServices.map((svc) => (
-                  <TableRow key={svc.serviceName} className="hover:bg-muted/50">
-                    <TableCell className="sticky left-0 z-10 border-r-2 bg-background font-medium">
-                      {svc.serviceName}
-                    </TableCell>
-                    {showAzure &&
-                      FRAMEWORK_KEYS.map((key) => (
-                        <ComplianceCell
-                          key={`az-${key}`}
-                          value={svc.azure[key]}
-                        />
+                {filteredServices.map((svc) => {
+                  const cloudData =
+                    cloudToggle === "azure"
+                      ? svc.azure
+                      : svc.azureGovernment;
+                  return (
+                    <TableRow
+                      key={svc.serviceName}
+                      className="hover:bg-muted/50"
+                    >
+                      <TableCell className="sticky left-0 z-10 border-r-2 bg-background font-medium">
+                        {svc.serviceName}
+                      </TableCell>
+                      {visibleFrameworks.map((key) => (
+                        <ComplianceCell key={key} value={cloudData[key]} />
                       ))}
-                    {showGov &&
-                      FRAMEWORK_KEYS.map((key, i) => (
-                        <ComplianceCell
-                          key={`gov-${key}`}
-                          value={svc.azureGovernment[key]}
-                          className={
-                            i === 0 && showAzure
-                              ? "border-l-[3px] border-l-muted-foreground"
-                              : undefined
-                          }
-                        />
-                      ))}
-                  </TableRow>
-                ))}
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

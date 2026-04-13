@@ -38,5 +38,6 @@ export interface AzureComplianceReport {
 
 export type FrameworkKey = keyof ComplianceFrameworks;
 
-export type CloudFilter = "all" | "azure" | "gov";
+export type CloudToggle = "azure" | "gov";
 export type ComplianceFilter = "all" | "compliant" | "partial" | "none";
+export type ReportFilter = "all" | FrameworkKey;
