@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, Check, Minus, Share2 } from "lucide-react";
+import { Search, Check, Minus, Share2, Cpu } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -476,6 +476,54 @@ export function ComplianceMatrix() {
             </Table>
           </div>
         )}
+      </div>
+
+      {/* MCP Integration */}
+      <div className="mx-auto w-full max-w-7xl px-4 pb-4">
+        <div className="rounded-lg border bg-card p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+              <Cpu className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-semibold">MCP Integration</h3>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                Connect your AI tools to this compliance data via the{" "}
+                <a
+                  href="https://azure-compliance.bitesinbyte.com/.well-known/mcp.json"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-foreground underline decoration-muted-foreground/30 underline-offset-2 transition-colors hover:decoration-foreground"
+                >
+                  MCP discovery endpoint
+                </a>
+                . Add the config below to Claude Desktop, Cursor, or any
+                MCP-compatible client.
+              </p>
+              <div className="mt-2.5 rounded-md border bg-muted/50 p-2.5">
+                <pre className="overflow-x-auto text-[11px] leading-relaxed">
+                  <code>{`{
+  "mcpServers": {
+    "azure-compliance": {
+      "url": "https://azure-compliance.bitesinbyte.com/.well-known/mcp.json"
+    }
+  }
+}`}</code>
+                </pre>
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Then ask your AI assistant questions like{" "}
+                <span className="italic">
+                  &ldquo;Which Azure services are HIPAA compliant?&rdquo;
+                </span>{" "}
+                or{" "}
+                <span className="italic">
+                  &ldquo;List PCI DSS services on Azure Government.&rdquo;
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Disclaimer */}
