@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { ArrowDown, Shield, FileJson, TableProperties } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ApiUsageDialog } from "@/components/api-usage-dialog";
 import { DATA_URL } from "@/lib/constants";
 
 export function HeroSection() {
@@ -76,6 +77,7 @@ export function HeroSection() {
             <FileJson className="h-4 w-4" />
             Get JSON
           </Button>
+          <ApiUsageDialog />
         </div>
 
         {/* Scroll indicator */}
